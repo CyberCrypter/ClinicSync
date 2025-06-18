@@ -50,11 +50,11 @@ const addDoctor = async (req, res) => {
         const newDoctor = new doctorModel(doctorData);
         await newDoctor.save();
 
-        res.status(201).json({message: "Doctor added successfully"});
+        res.status(200).json({success: true, message: "Doctor added successfully"});
 
     }catch(error){
         console.error("Error adding doctor:", error);
-        res.status(500).json({message: "Internal server error"});
+        res.status(500).json({success: false, message: "Internal server error"});
 
     }
 }
@@ -67,10 +67,10 @@ const loginAdmin = async (req,res) => {
         if(email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD){
 
             const token = jwt.sign(email+password,process.env.JWT_SECRET);
-            res.status(200).json({message: "Login successful", token: token});
+            res.status(200).json({success: true, message: "Login successful", token: token});
 
         } else{
-            return res.status(400).json({message: "Invalid email or password"});
+            return res.json({success: false, message: "Invalid email or password"});
         }
         
     } catch (error) {
