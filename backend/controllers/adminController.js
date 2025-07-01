@@ -75,9 +75,20 @@ const loginAdmin = async (req,res) => {
         
     } catch (error) {
         console.error("Error logging in admin:", error);
-        res.status(500).json({message: "Internal server error"});
+        res.status(500).json({success:false,message: "Internal server error"});
         
     }
 }
 
-export {addDoctor, loginAdmin};
+const allDoctors = async (req, res) => {
+    try {
+        const doctors = await doctorModel.find({}).select('-password')
+        res.json({success:true,doctors})
+        
+    } catch (error) {
+        console.error("Error logging in admin:", error);
+        res.status(500).json({success:false,message: "Internal server error"});
+    }
+}
+
+export {addDoctor, loginAdmin,allDoctors};
