@@ -1,14 +1,20 @@
 import React, { useContext,useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import RelatedDoctors from '../components/RelatedDoctors'
+import { toast } from 'react-toastify'
+import axios from 'axios'
+
+
 
 const Appointment = () => {
 
   const {docId} = useParams()
-  const {doctors,currencySymbol} = useContext(AppContext)
+  const {doctors,currencySymbol, backendUrl, token, getDoctorsData} = useContext(AppContext)
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+  const navigate = useNavigate()
 
   const [docInfo, setDocInfo] = useState(null)
   const [docSlots, setDocSlots] = useState([])
@@ -21,6 +27,8 @@ const Appointment = () => {
   }
 
   const getAvailableSlots = async () => {
+    if (!docInfo || !docInfo.slots_booked) return; // Prevents error if docInfo is not loaded
+
     setDocSlots([])
 
     //getting current date
@@ -48,10 +56,25 @@ const Appointment = () => {
       while(currentDate < endTime){
         let formattedTime = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-        timeSlots.push({
-        datetime: new Date(currentDate),
-        time: formattedTime
-        })
+        let day = currentDate.getDate()
+        let month = currentDate.getMonth() + 1 
+        let year = currentDate.getFullYear()
+
+        //checking if the slot is already booked
+
+        const slotDate = day + "-" + month + "-" + year
+        const slotTime = formattedTime
+
+        const isSlotAvailable = docInfo.slots_booked[slotDate] && docInfo.slots_booked[slotDate].includes(slotTime) ? false : true
+
+        if (isSlotAvailable){
+          timeSlots.push({
+            datetime: new Date(currentDate),
+            time: formattedTime,
+          })
+        }
+
+        
 
         //incrementing time by 30 minutes
         currentDate.setMinutes(currentDate.getMinutes() + 30)
@@ -59,6 +82,39 @@ const Appointment = () => {
       }
 
       setDocSlots(prev => ([...prev, timeSlots]))
+    }
+  }
+
+  const bookAppointment = async () => {
+    if (!token) {
+      toast.warn('Login to book an appointment');
+      return navigate('/login');
+    }
+    if (!filteredSlots[slotIndex] || !filteredSlots[slotIndex][0]) {
+      toast.error('Please select a valid slot');
+      return;
+    }
+    try {
+      const date = filteredSlots[slotIndex][0].datetime;
+      let day = date.getDate();
+      let month = date.getMonth() + 1;
+      let year = date.getFullYear();
+      const slotDate = day + "-" + month + "-" + year;
+      const { data } = await axios.post(
+        backendUrl + '/api/user/book-appointment',
+        { docId, slotDate, slotTime },
+        { headers: { token } }
+      );
+      if (data.success) {
+        toast.success(data.message);
+        getDoctorsData();
+        navigate('/my-appointments');
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error(error.message);
     }
   }
 
@@ -75,6 +131,8 @@ const Appointment = () => {
     console.log(docSlots);
     
   },[docSlots])
+
+  const filteredSlots = docSlots.filter(daySlots => daySlots.length > 0);
 
   return docInfo && (
     <div>
@@ -109,25 +167,32 @@ const Appointment = () => {
         <p>Booking slots</p>
         <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4'>
           {
-            docSlots.length && docSlots.map((item,index)=>(
-              <div onClick={()=> setSlotIndex(index)} className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${slotIndex === index ? 'bg-primary text-white' : 'border border-gray-200'} `} key={index}>
+            filteredSlots.map((item, index) => (
+              <div
+                onClick={() => setSlotIndex(index)}
+                className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${slotIndex === index ? 'bg-primary text-white' : 'border border-gray-200'}`}
+                key={index}
+              >
                 <p>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
                 <p>{item[0] && item[0].datetime.getDate()}</p>
-
               </div>
             ))
           }
         </div>
-
+  
         <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4'>
-          {docSlots.length && docSlots[slotIndex].map((item,index)=>(
-            <p onClick={()=>setSlotTime(item.time)} className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-gray-400 border border-gray-300'}`} key={index}>
+          {filteredSlots[slotIndex]?.map((item, index) => (
+            <p
+              onClick={() => setSlotTime(item.time)}
+              className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-gray-400 border border-gray-300'}`}
+              key={index}
+            >
               {item.time.toLowerCase()}
             </p>
           ))}
         </div>
 
-        <button className='bg-primary text-white text-sm font-light px-14 py-3 rounded-full my-6' >Book an appointment</button>
+        <button onClick={bookAppointment} className='bg-primary text-white text-sm font-light px-14 py-3 rounded-full my-6' >Book an appointment</button>
       </div>
       {/* Related Doctors */}
       <RelatedDoctors docId={docId} speciality={docInfo.speciality} />
