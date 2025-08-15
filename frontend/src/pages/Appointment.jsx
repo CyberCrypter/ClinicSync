@@ -110,11 +110,11 @@ const Appointment = () => {
         getDoctorsData();
         navigate('/my-appointments');
       } else {
-        toast.error(data.message);
+        toast.error("Login first before trying...")
       }
     } catch (error) {
       console.log(error);
-      toast.error(error.message);
+      toast.error("Login first before trying...")
     }
   }
 

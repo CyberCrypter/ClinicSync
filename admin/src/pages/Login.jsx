@@ -1,10 +1,11 @@
 import React, { useContext } from 'react'
 import { assets } from '../assets/assets'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminContext } from '../context/AdminContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { DoctorContext } from '../context/DoctorContext'
+import { useNavigate } from 'react-router-dom'
 
 const Login = () => {
 
@@ -14,6 +15,7 @@ const Login = () => {
 
     const {setAToken,backendUrl} = useContext(AdminContext)
     const {setDToken} = useContext(DoctorContext)
+    const navigate = useNavigate()
 
     const onSubmitHandler = async (event) => {
         event.preventDefault()
@@ -26,27 +28,29 @@ const Login = () => {
                 if(data.token){
                     localStorage.setItem('atoken',data.token)
                     setAToken(data.token)
+                    navigate('/admin-dashboard') // <--- redirect to admin dashboard
                 }else{
                     toast.error(data.message || "Login failed, please try again")
                 }
 
             }else{
-                const {data} = await axios.post(backendUrl+'/api/doctor/login',{email,password})
+                const {data} = await axios.post(backendUrl + '/api/doctor/login',{email,password})
                 if(data.token){
                     localStorage.setItem('dtoken',data.token)
                     setDToken(data.token)
-                    console.log(data.token);
-                    
+                    navigate('/doctor-dashboard') // <--- redirect to doctor dashboard
                 }else{
                     toast.error(data.message || "Login failed, please try again")
                 }
 
             }
         } catch (error) {
+            console.log(error)
         }
 
 
     }
+
 
   return (
     <form onSubmit={onSubmitHandler} className='min-h-[80vh] flex items-center'>

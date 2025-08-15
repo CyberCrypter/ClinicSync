@@ -1,5 +1,5 @@
 import React, { useContext } from 'react'
-import { BrowserRouter,Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import Login from './pages/Login'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -14,33 +14,34 @@ import { DoctorContext } from './context/DoctorContext';
 import DoctorAppointments from './pages/Doctor/Doctorappointments';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
-
-
+ 
 const App = () => {
-
+ 
   const {aToken} = useContext(AdminContext)
   const {dToken} = useContext(DoctorContext)
+  const location = useLocation()
   return aToken || dToken ? ( 
     <div className='bg-[#F8F9FD]'>
       <ToastContainer />
       <Navbar/>
       <div className='flex items-start'>
         <Sidebar/>
-        <Routes>
-          <Route path='/' element={<></>} />
-          <Route path='/admin-dashboard' element={<Dashboard />} />
-          <Route path='/all-appointments' element={<AllAppointments />} />
-          <Route path='/add-doctor' element={<AddDoctor />} />
-          <Route path='/doctor-list' element={<DoctorsList />} />
-
-          {/* doctor routes */}
-          <Route path='/doctor-appointments' element={<DoctorAppointments />} />
-          <Route path='/doctor-profile' element={<DoctorProfile />} />
-          <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
-
-        </Routes>
+        {/* keyed wrapper triggers mount for each route -> CSS fade-in */}
+        <div className="page-transition" key={location.pathname}>
+          <Routes location={location}>
+            <Route path='/' element={<></>} />
+            <Route path='/admin-dashboard' element={<Dashboard />} />
+            <Route path='/all-appointments' element={<AllAppointments />} />
+            <Route path='/add-doctor' element={<AddDoctor />} />
+            <Route path='/doctor-list' element={<DoctorsList />} />
+ 
+            {/* doctor routes */}
+            <Route path='/doctor-appointments' element={<DoctorAppointments />} />
+            <Route path='/doctor-profile' element={<DoctorProfile />} />
+            <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
+          </Routes>
+        </div>
       </div>
-
     </div>
   ) : (
     <>
@@ -49,5 +50,5 @@ const App = () => {
     </>
   )
 }
-
+ 
 export default App
