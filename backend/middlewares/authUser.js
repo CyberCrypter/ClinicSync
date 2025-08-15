@@ -2,7 +2,6 @@ import jwt from 'jsonwebtoken';
 
 //user authentication middleware
 const authUser = async (req, res, next) => {
-    console.log("Admin authentication middleware called");
 
     try {
         const {token} = req.headers;
