@@ -23,8 +23,12 @@ app.use(cors({
       process.env.FRONTEND_URL, // example: https://your-frontend.vercel.app
       process.env.ADMIN_URL,    // example: https://your-admin.vercel.app
       'http://localhost:5173',
-      'http://127.0.0.1:5173'
-    ].filter(Boolean).map(u => u.replace(/\/$/, ''))
+      'http://localhost:5174',
+      'http://localhost:5175',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:5175'
+    ].filter(Boolean).map(u => u.replace(/\/$/, '').trim()).filter(Boolean)
 
     const normalized = origin.replace(/\/$/, '')
     if (allowed.includes(normalized)) return callback(null, true)
