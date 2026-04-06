@@ -11,7 +11,11 @@ import crypto from 'crypto'
 
 const registerUser = async (req,res) => {
     try {
-        const { name,email,password } = req.body
+        const { name,email,password } = req.body || {}
+
+        if(!req.body || typeof req.body !== 'object'){
+            return res.status(400).json({success:false,message:"Invalid request payload"})
+        }
 
         if( !name || !password || !email ){
             return res.json({success:false,message:"Missing Details"})
@@ -63,8 +67,16 @@ const registerUser = async (req,res) => {
 
 const loginUser = async (req,res) => {
     try {
+        const {email,password} = req.body || {}
 
-        const {email,password} = req.body
+        if(!req.body || typeof req.body !== 'object'){
+            return res.status(400).json({success:false,message:"Invalid request payload"})
+        }
+
+        if(!email || !password){
+            return res.status(400).json({success:false,message:'Email and password are required'})
+        }
+
         const user = await userModel.findOne({email})
         if(!user){
             return res.json({success:false,message:'User does not exist'})

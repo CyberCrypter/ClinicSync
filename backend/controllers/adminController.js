@@ -64,7 +64,15 @@ const addDoctor = async (req, res) => {
 //API for admin login
 const loginAdmin = async (req,res) => {
     try {
-        const {email, password} = req.body;
+        const {email, password} = req.body || {};
+
+        if(!req.body || typeof req.body !== 'object'){
+            return res.status(400).json({success:false,message:'Invalid request payload'});
+        }
+
+        if(!email || !password){
+            return res.status(400).json({success:false,message:'Email and password are required'});
+        }
 
         if(email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD){
 

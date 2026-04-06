@@ -34,7 +34,16 @@ const doctorList = async (req,res) => {
 
 const loginDoctor = async (req,res) => {
     try {
-     const {email,password} = req.body
+      const {email,password} = req.body || {}
+
+      if(!req.body || typeof req.body !== 'object'){
+          return res.status(400).json({success:false,message:'Invalid request payload'})
+      }
+
+      if(!email || !password){
+          return res.status(400).json({success:false,message:'Email and password are required'})
+      }
+
      const doctor = await doctorModel.findOne({email})
      
      if(!doctor){
