@@ -15,6 +15,19 @@ const parseRequestBody = (body) => {
         try {
             return JSON.parse(body)
         } catch {
+            const params = new URLSearchParams(body)
+            const email = params.get('email')
+            const password = params.get('password')
+            const name = params.get('name')
+
+            if (email || password || name) {
+                return {
+                    email: email || undefined,
+                    password: password || undefined,
+                    name: name || undefined
+                }
+            }
+
             return {}
         }
     }
