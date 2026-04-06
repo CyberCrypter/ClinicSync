@@ -19,6 +19,22 @@ const MyAppointments = () => {
   }
   const navigate = useNavigate()
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      script.onload = () => resolve(true)
+      script.onerror = () => resolve(false)
+      document.body.appendChild(script)
+    })
+  }
+
   const getUserAppointments = async () => {
     try {
       const {data } = await axios.get(backendUrl+'/api/user/appointments',{headers:{token}})
@@ -67,13 +83,15 @@ const MyAppointments = () => {
         try {
           const {data } = await axios.post(backendUrl+'/api/user/verifyRazorpay',response,{headers:{token}})
           if (data.success){
+            toast.success('Payment verified successfully')
             getUserAppointments()
             navigate('/my-appointments')
           } else {
-            toast.error(error.message)
+            toast.error(data.message)
           }
         } catch (error) {
-          
+          console.log(error)
+          toast.error(error?.response?.data?.message || error.message)
         }
       }
     }
@@ -85,13 +103,23 @@ const MyAppointments = () => {
 
   const appointmentRazorpay = async (appointmentId) => {
     try {
+      const isScriptLoaded = await loadRazorpayScript()
+
+      if (!isScriptLoaded) {
+        toast.error('Unable to load Razorpay checkout. Please disable ad-blocker and try again.')
+        return
+      }
+
       const {data} = await axios.post(backendUrl+'/api/user/payment-razorpay',{appointmentId},{headers:{token}})
 
       if(data.success){
         initPay(data.order)
+      } else {
+        toast.error(data.message)
       }
     } catch (error) {
       console.log(error);
+      toast.error(error?.response?.data?.message || error.message)
     }
   }
 

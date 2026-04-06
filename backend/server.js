@@ -38,6 +38,7 @@ app.use(cors({
   },
   credentials: true
 }))
+app.use('/api/user/razorpay-webhook', express.raw({ type: 'application/json' }))
 app.use(express.json());
 
 //api endpoints

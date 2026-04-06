@@ -6,6 +6,7 @@ import {v2 as cloudinary} from 'cloudinary'
 import doctorModel from '../models/doctorModel.js'
 import appointmentModel from '../models/appointmentModel.js'
 import razorpay from 'razorpay'
+import crypto from 'crypto'
 
 
 const registerUser = async (req,res) => {
@@ -23,6 +24,11 @@ const registerUser = async (req,res) => {
         if(password.length < 8){
             return res.json({success:false,message:"Enter a strong password"})
 
+        }
+
+        const existingUser = await userModel.findOne({email})
+        if(existingUser){
+            return res.json({success:false,message:"Email is already registered"})
         }
 
         //hashing user password
@@ -45,6 +51,10 @@ const registerUser = async (req,res) => {
 
     } catch (error) {
         console.log(error);
+        if(error.code === 11000){
+            return res.json({success:false,message:"Email is already registered"})
+        }
+
         res.json({success:false,message:error.message})
         
         
@@ -222,10 +232,19 @@ const paymentRazorpay = async (req,res) => {
     try {
         
         const { appointmentId } = req.body
+        const { userId } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
         if(!appointmentData || appointmentData.cancelled){
             return res.json({success:false,message:"Appointment not found or already cancelled"})
+        }
+
+        if(appointmentData.userId !== userId){
+            return res.status(403).json({success:false,message:"Unauthorized access"})
+        }
+
+        if(appointmentData.payment){
+            return res.json({success:false,message:"Appointment already paid"})
         }
 
         //creating options for razorpay payment
@@ -236,6 +255,12 @@ const paymentRazorpay = async (req,res) => {
         }
 
         const order = await razorpayInstance.orders.create(options)
+
+        await appointmentModel.findByIdAndUpdate(appointmentId,{
+            razorpayOrderId: order.id,
+            paymentStatus: 'pending'
+        })
+
         res.json({success:true,order})
 
     } catch (error) {
@@ -250,16 +275,40 @@ const paymentRazorpay = async (req,res) => {
 
 const verifyRazorpay = async (req,res) => {
     try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
 
-        const {razorpay_order_id} = req.body
-        const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
-        if(orderInfo.status === 'paid'){
-            await appointmentModel.findByIdAndUpdate(orderInfo.receipt,{payment:true})
-            res.json({success:true,message:"Payment successful"})
+        if(!razorpay_order_id || !razorpay_payment_id || !razorpay_signature){
+            return res.status(400).json({success:false,message:"Missing payment verification fields"})
         }
-        else{
-            res.json({success:false,message:"Payment failed"})
+
+        const generatedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest('hex')
+
+        if(generatedSignature !== razorpay_signature){
+            return res.status(400).json({success:false,message:"Invalid payment signature"})
         }
+
+        const appointment = await appointmentModel.findOne({razorpayOrderId: razorpay_order_id})
+
+        if(!appointment){
+            return res.status(404).json({success:false,message:"Appointment not found for this order"})
+        }
+
+        if(appointment.payment){
+            return res.json({success:true,message:"Payment already verified"})
+        }
+
+        await appointmentModel.findByIdAndUpdate(appointment._id,{
+            payment: true,
+            paymentStatus: 'paid',
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+            paymentVerifiedAt: new Date()
+        })
+
+        res.json({success:true,message:"Payment successful"})
 
 
     } catch (error) {
@@ -269,4 +318,75 @@ const verifyRazorpay = async (req,res) => {
     }
 }
 
-export {registerUser,loginUser,getProfile,updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay}
+//api webhook callback from razorpay
+
+const razorpayWebhook = async (req,res) => {
+    try {
+        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
+
+        if(!webhookSecret){
+            return res.status(500).json({success:false,message:'Webhook secret is not configured'})
+        }
+
+        const signature = req.headers['x-razorpay-signature']
+        const rawBody = req.body
+
+        const expectedSignature = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(rawBody)
+            .digest('hex')
+
+        if(signature !== expectedSignature){
+            return res.status(400).json({success:false,message:'Invalid webhook signature'})
+        }
+
+        const eventData = JSON.parse(rawBody.toString())
+        const eventType = eventData?.event
+        const eventId = eventData?.payload?.payment?.entity?.id || eventData?.payload?.order?.entity?.id || ''
+
+        if(eventType === 'payment.captured' || eventType === 'order.paid'){
+            const paymentEntity = eventData?.payload?.payment?.entity
+            const orderEntity = eventData?.payload?.order?.entity
+            const orderId = paymentEntity?.order_id || orderEntity?.id
+            const paymentId = paymentEntity?.id || ''
+
+            if(orderId){
+                const appointment = await appointmentModel.findOne({razorpayOrderId: orderId})
+
+                if(appointment && appointment.lastRazorpayEventId !== eventId && !appointment.payment){
+                    await appointmentModel.findByIdAndUpdate(appointment._id,{
+                        payment: true,
+                        paymentStatus: 'paid',
+                        razorpayPaymentId: paymentId,
+                        paymentVerifiedAt: new Date(),
+                        lastRazorpayEventId: eventId
+                    })
+                }
+            }
+        }
+
+        if(eventType === 'payment.failed'){
+            const paymentEntity = eventData?.payload?.payment?.entity
+            const orderId = paymentEntity?.order_id
+
+            if(orderId){
+                const appointment = await appointmentModel.findOne({razorpayOrderId: orderId})
+
+                if(appointment && appointment.lastRazorpayEventId !== (paymentEntity?.id || '')){
+                    await appointmentModel.findByIdAndUpdate(
+                        appointment._id,
+                        {paymentStatus: 'failed', lastRazorpayEventId: paymentEntity?.id || ''}
+                    )
+                }
+            }
+        }
+
+        res.status(200).json({success:true})
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({success:false,message:error.message})
+    }
+}
+
+export {registerUser,loginUser,getProfile,updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, razorpayWebhook}

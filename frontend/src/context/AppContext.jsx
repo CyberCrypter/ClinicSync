@@ -6,10 +6,13 @@ export const AppContext = createContext()
 
 const AppContextProvider = (props)=>{
 
+    const storedToken = localStorage.getItem('token')
+    const initialToken = storedToken && storedToken !== 'undefined' && storedToken !== 'null' ? storedToken : false
+
     const currencySymbol = '$'
     const backendUrl = import.meta.env.VITE_BACKEND_URL
     const [doctors,setDoctors] = useState([])
-    const [token,setToken] = useState(localStorage.getItem('token')?localStorage.getItem('token'):false)
+    const [token,setToken] = useState(initialToken)
     const [userData,setUserData] = useState(false)
 
 
@@ -30,6 +33,8 @@ const AppContextProvider = (props)=>{
     }
 
     const loadUserProfileData = async () => {
+        if(!token) return
+
         try {
             const { data } = await axios.get(backendUrl + '/api/user/get-profile',{headers:{token}})
             if(data.success){
@@ -39,6 +44,15 @@ const AppContextProvider = (props)=>{
             }
         } catch (error) {
             console.log(error);
+            const statusCode = error?.response?.status
+
+            if(statusCode === 401 || statusCode === 403){
+                localStorage.removeItem('token')
+                setToken(false)
+                setUserData(false)
+                return
+            }
+
             toast.error(error.message)
         }
     }

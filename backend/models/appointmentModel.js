@@ -11,6 +11,12 @@ const appointmentSchema = new mongoose.Schema({
     date: { type: Number, required: true },
     cancelled: { type: Boolean, default: false },
     payment: { type: Boolean, default: false },
+    paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
+    razorpayOrderId: { type: String, default: '' },
+    razorpayPaymentId: { type: String, default: '' },
+    razorpaySignature: { type: String, default: '' },
+    paymentVerifiedAt: { type: Date },
+    lastRazorpayEventId: { type: String, default: '' },
     isCompleted: { type: Boolean, default: false },
 })
 
