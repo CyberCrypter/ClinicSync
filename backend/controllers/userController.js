@@ -9,13 +9,40 @@ import razorpay from 'razorpay'
 import crypto from 'crypto'
 
 const parseRequestBody = (body) => {
-    if (body && typeof body === 'object') return body
+    if (!body) return {}
+
+    if (Buffer.isBuffer(body)) {
+        const decoded = body.toString('utf8')
+        return parseRequestBody(decoded)
+    }
+
+    if (Array.isArray(body)) return {}
+
+    if (body && typeof body === 'object') {
+        if (body.body && typeof body.body === 'string') {
+            return parseRequestBody(body.body)
+        }
+
+        if (body.data && typeof body.data === 'object') {
+            return body.data
+        }
+
+        if (body.payload && typeof body.payload === 'object') {
+            return body.payload
+        }
+
+        return body
+    }
 
     if (typeof body === 'string') {
+        const normalized = body.trim()
+
+        if (!normalized) return {}
+
         try {
-            return JSON.parse(body)
+            return JSON.parse(normalized)
         } catch {
-            const params = new URLSearchParams(body)
+            const params = new URLSearchParams(normalized)
             const email = params.get('email')
             const password = params.get('password')
             const name = params.get('name')
@@ -39,7 +66,9 @@ const parseRequestBody = (body) => {
 const registerUser = async (req,res) => {
     try {
         const payload = parseRequestBody(req.body)
-        const { name,email,password } = payload
+        const name = payload?.name?.trim?.() || ''
+        const email = payload?.email?.trim?.() || ''
+        const password = payload?.password || ''
 
         if(!name || !email || !password){
             return res.status(400).json({success:false,message:"Missing Details"})
@@ -96,7 +125,8 @@ const registerUser = async (req,res) => {
 const loginUser = async (req,res) => {
     try {
         const payload = parseRequestBody(req.body)
-        const {email,password} = payload
+        const email = payload?.email?.trim?.() || ''
+        const password = payload?.password || ''
 
         if(!email || !password){
             return res.status(400).json({success:false,message:'Email and password are required'})
