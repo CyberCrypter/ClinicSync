@@ -40,6 +40,8 @@ app.use(cors({
 }))
 app.use('/api/user/razorpay-webhook', express.raw({ type: 'application/json' }))
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.text({ type: 'text/plain' }));
 
 //api endpoints
 app.use('/api/admin',adminRouter)

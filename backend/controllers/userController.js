@@ -8,17 +8,32 @@ import appointmentModel from '../models/appointmentModel.js'
 import razorpay from 'razorpay'
 import crypto from 'crypto'
 
+const parseRequestBody = (body) => {
+    if (body && typeof body === 'object') return body
+
+    if (typeof body === 'string') {
+        try {
+            return JSON.parse(body)
+        } catch {
+            return {}
+        }
+    }
+
+    return {}
+}
+
 
 const registerUser = async (req,res) => {
     try {
-        const { name,email,password } = req.body || {}
+        const payload = parseRequestBody(req.body)
+        const { name,email,password } = payload
 
-        if(!req.body || typeof req.body !== 'object'){
-            return res.status(400).json({success:false,message:"Invalid request payload"})
+        if(!name || !email || !password){
+            return res.status(400).json({success:false,message:"Missing Details"})
         }
 
-        if( !name || !password || !email ){
-            return res.json({success:false,message:"Missing Details"})
+        if(!req.body){
+            return res.status(400).json({success:false,message:"Invalid request payload"})
         }
 
         if( !validator.isEmail(email)){
@@ -67,14 +82,15 @@ const registerUser = async (req,res) => {
 
 const loginUser = async (req,res) => {
     try {
-        const {email,password} = req.body || {}
-
-        if(!req.body || typeof req.body !== 'object'){
-            return res.status(400).json({success:false,message:"Invalid request payload"})
-        }
+        const payload = parseRequestBody(req.body)
+        const {email,password} = payload
 
         if(!email || !password){
             return res.status(400).json({success:false,message:'Email and password are required'})
+        }
+
+        if(!req.body){
+            return res.status(400).json({success:false,message:"Invalid request payload"})
         }
 
         const user = await userModel.findOne({email})
