@@ -19,6 +19,21 @@ const parseRequestBody = (body) => {
     if (Array.isArray(body)) return {}
 
     if (body && typeof body === 'object') {
+        const keys = Object.keys(body)
+
+        // Some hosted parsers can produce: {"{\"email\":\"a@b.com\",\"password\":\"123\"}": ""}
+        if (keys.length === 1) {
+            const onlyKey = keys[0]
+            const onlyValue = body[onlyKey]
+
+            if (typeof onlyKey === 'string' && (onlyValue === '' || onlyValue === null)) {
+                const parsedFromKey = parseRequestBody(onlyKey)
+                if (parsedFromKey.email || parsedFromKey.password || parsedFromKey.name) {
+                    return parsedFromKey
+                }
+            }
+        }
+
         if (body.body && typeof body.body === 'string') {
             return parseRequestBody(body.body)
         }
